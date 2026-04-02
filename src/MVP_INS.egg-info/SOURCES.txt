@@ -1,0 +1,7 @@
+README.md
+pyproject.toml
+src/MVP_INS.egg-info/PKG-INFO
+src/MVP_INS.egg-info/SOURCES.txt
+src/MVP_INS.egg-info/dependency_links.txt
+src/MVP_INS.egg-info/requires.txt
+src/MVP_INS.egg-info/top_level.txt
