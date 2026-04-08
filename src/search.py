@@ -1,14 +1,17 @@
-# ========================= search.py =========================
-from pydantic import BaseModel, Field
-from typing import List, Optional
 import asyncpg
 import os
+import logging
+from typing import List, Optional
+from pydantic import BaseModel, Field
+from livekit.agents import function_tool
+
+logger = logging.getLogger("search-tool")
 
 
-# -------- Pydantic Models --------
+# ------------------ MODELS ------------------
 class SearchRequest(BaseModel):
-    phone: Optional[str] = Field(None, description="Customer phone number")
-    policy_number: Optional[str] = Field(None, description="Policy number")
+    phone: Optional[str] = Field(default=None)
+    policy_number: Optional[str] = Field(default=None)
 
 
 class ClaimInfo(BaseModel):
@@ -37,23 +40,24 @@ class CustomerResponse(BaseModel):
     policies: List[PolicyInfo]
 
 
-# -------- DB Connection --------
+# ------------------ DB CONNECTION ------------------
 async def connect_db():
     return await asyncpg.connect(
         host=os.getenv("DB_HOST"),
-        port=os.getenv("DB_PORT"),
+        port=int(os.getenv("DB_PORT", 5432)),
         database=os.getenv("DB_NAME"),
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASS"),
     )
 
 
-# -------- Fetch Function (Tool) --------
+# ------------------ FETCH FUNCTION ------------------
 async def fetch_customer_data(req: SearchRequest) -> Optional[CustomerResponse]:
     conn = await connect_db()
     try:
         query = """
         SELECT c.id AS customer_id, c.full_name,
+               p.id AS policy_id,
                p.policy_number, p.policy_type, p.status,
                p.premium_amount, p.premium_frequency,
                p.sum_insured, p.start_date, p.end_date,
@@ -62,39 +66,46 @@ async def fetch_customer_data(req: SearchRequest) -> Optional[CustomerResponse]:
         FROM customers c
         JOIN policies p ON p.customer_id = c.id
         LEFT JOIN claims cl ON cl.policy_id = p.id
-        WHERE c.phone = $1 OR p.policy_number = $2
+        WHERE 
+            ($1::TEXT IS NOT NULL AND c.phone = $1)
+            OR
+            ($2::TEXT IS NOT NULL AND p.policy_number = $2)
         ORDER BY p.id DESC
         """
 
         rows = await conn.fetch(query, req.phone, req.policy_number)
+
         if not rows:
             return None
 
-        policies = []
+        policy_map = {}
+
         for row in rows:
-            claim = None
+            policy_id = row["policy_id"]
+
+            if policy_id not in policy_map:
+                policy_map[policy_id] = {
+                    "policy_number": row["policy_number"],
+                    "policy_type": row["policy_type"],
+                    "status": row["status"],
+                    "premium_amount": float(row["premium_amount"]),
+                    "premium_frequency": row["premium_frequency"],
+                    "sum_insured": float(row["sum_insured"]),
+                    "start_date": str(row["start_date"]) if row["start_date"] else None,
+                    "end_date": str(row["end_date"]) if row["end_date"] else None,
+                    "claim": None
+                }
+
             if row["claim_number"]:
-                claim = ClaimInfo(
+                policy_map[policy_id]["claim"] = ClaimInfo(
                     claim_number=row["claim_number"],
                     claim_status=row["claim_status"],
-                    claimed_amount=row["claimed_amount"],
-                    approved_amount=row["approved_amount"],
+                    claimed_amount=float(row["claimed_amount"]),
+                    approved_amount=float(row["approved_amount"]) if row["approved_amount"] else None,
                     description=row["description"],
                 )
 
-            policies.append(
-                PolicyInfo(
-                    policy_number=row["policy_number"],
-                    policy_type=row["policy_type"],
-                    status=row["status"],
-                    premium_amount=row["premium_amount"],
-                    premium_frequency=row["premium_frequency"],
-                    sum_insured=row["sum_insured"],
-                    start_date=str(row["start_date"]) if row["start_date"] else None,
-                    end_date=str(row["end_date"]) if row["end_date"] else None,
-                    claim=claim,
-                )
-            )
+        policies = [PolicyInfo(**p) for p in policy_map.values()]
 
         return CustomerResponse(
             customer_id=rows[0]["customer_id"],
@@ -106,3 +117,52 @@ async def fetch_customer_data(req: SearchRequest) -> Optional[CustomerResponse]:
         await conn.close()
 
 
+# ------------------ TOOL: CUSTOMER SEARCH ------------------
+@function_tool
+async def search_customer(policy_number: str) -> dict:
+    try:
+        policy_number = policy_number.strip().upper()
+
+        req = SearchRequest(
+            phone=None,
+            policy_number=policy_number
+        )
+
+        result = await fetch_customer_data(req)
+
+        if not result:
+            return {"error": "Customer not found"}
+
+        return result.model_dump()
+
+    except Exception as e:
+        logger.error(f"Search error: {e}")
+        return {"error": "Internal error"}
+
+
+# ------------------ TOOL: REGULATIONS ------------------
+@function_tool
+async def get_regulation(topic: str) -> str:
+    topic = topic.lower()
+
+    regulations = {
+        "claim": (
+            "To file a claim, valid documents must be submitted. "
+            "Claims are reviewed and may be approved or rejected. "
+            "Rejection can happen due to incomplete documents or policy conditions."
+        ),
+        "premium": (
+            "Premium must be paid on time based on frequency. "
+            "Missing payments may lead to policy lapse after grace period."
+        ),
+        "policy": (
+            "Policy must be active for benefits. "
+            "Expired or cancelled policies are not eligible for claims."
+        ),
+        "general": (
+            "Customer must provide policy number for verification. "
+            "Sensitive details should not be shared without validation."
+        )
+    }
+
+    return regulations.get(topic, "No regulation found for this topic.")

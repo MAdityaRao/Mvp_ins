@@ -1,4 +1,3 @@
-import json
 import logging
 from dotenv import load_dotenv
 
@@ -9,11 +8,10 @@ from livekit.agents import (
     JobContext,
     cli,
     inference,
-    function_tool,
 )
 from livekit.plugins import silero
 
-from search import fetch_customer_data, SearchRequest
+from search import search_customer, get_regulation
 
 load_dotenv(".env")
 
@@ -21,42 +19,19 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("insurance-agent")
 
 
-# ------------------ TOOL (Context7 structured) ------------------
-@function_tool
-async def search_customer(policy_number: str) -> dict:
-    """
-    Fetch customer details using policy number
-    """
-    try:
-        req = SearchRequest(
-        phone=None,
-        policy_number=policy_number.strip()
-        )
-        result = await fetch_customer_data(req)
-
-        if not result:
-            return {"error": "Customer not found"}
-
-        return result.dict()
-
-    except Exception as e:
-        logger.error(f"Search error: {e}")
-        return {"error": "Internal error"}
-
-
 # ------------------ PROMPT ------------------
 def build_instructions() -> str:
     return (
-        "You are Aria, a professional insurance assistant for InsureCo.\n"
-        "You are on a live voice call — keep every reply to 2-3 sentences.\n"
-        "Speak naturally. Do not use bullet points or symbols.\n\n"
-
+        "You are Aria, a professional insurance assistant.\n"
+        "You are on a live voice call — keep replies 2-3 sentences.\n"
+        "Speak naturally.\n\n"
         "FLOW:\n"
-        "1. First ask for policy number.\n"
-        "2. When user provides policy number, call the search_customer tool.\n"
-        "3. After receiving data, explain policy, premium, and claim status clearly.\n"
-        "4. If not found, politely ask again.\n"
-        "5. If unsure, transfer to human agent.\n"
+        "1. Ask for policy number first.\n"
+        "2. Use search_customer tool when policy number is given.\n"
+        "3. Use get_regulation tool for rules, claims, or policy questions.\n"
+        "4. Explain clearly.\n"
+        "5. If not found, ask again politely.\n"
+        "6. Offer human help if needed.\n"
     )
 
 
@@ -65,7 +40,7 @@ class InsuranceAssistant(Agent):
     def __init__(self):
         super().__init__(
             instructions=build_instructions(),
-            tools=[search_customer],  # 🔥 tool added
+            tools=[search_customer, get_regulation],
         )
 
 
@@ -77,7 +52,6 @@ server = AgentServer()
 async def entrypoint(ctx: JobContext):
     logger.info(f"Incoming call — room: {ctx.room.name}")
 
-    # Just connect (no DB fetch here)
     await ctx.connect()
 
     session = AgentSession(
@@ -92,9 +66,9 @@ async def entrypoint(ctx: JobContext):
         agent=InsuranceAssistant(),
     )
 
-    # -------- FORCE FIRST QUESTION --------
     await session.generate_reply(
-        instructions="Greet the caller and ask for their policy number to proceed."
+        instructions="Greet the caller and ask for their policy number.",
+        allow_interruptions=False
     )
 
 
