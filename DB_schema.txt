@@ -1,0 +1,41 @@
+CREATE TABLE customers (
+    id SERIAL PRIMARY KEY,
+    full_name VARCHAR(255) NOT NULL,
+    phone VARCHAR(20) UNIQUE NOT NULL,
+    email VARCHAR(255),
+    created_at TIMESTAMP
+);
+
+CREATE TABLE policies (
+    id SERIAL PRIMARY KEY,
+    customer_id INT,
+    policy_number VARCHAR(50) UNIQUE NOT NULL,
+    policy_type VARCHAR(50),
+    status VARCHAR(20),
+    premium_amount NUMERIC(12,2),
+    premium_frequency VARCHAR(20),
+    sum_insured NUMERIC(12,2),
+    start_date DATE,
+    end_date DATE,
+    created_at TIMESTAMP
+);
+
+CREATE TABLE claims (
+    id SERIAL PRIMARY KEY,
+    policy_id INT,
+    claim_number VARCHAR(50) UNIQUE NOT NULL,
+    status VARCHAR(30),
+    claimed_amount NUMERIC(12,2),
+    approved_amount NUMERIC(12,2),
+    description TEXT,
+    filed_at TIMESTAMP
+);
+
+CREATE TABLE call_logs (
+    id SERIAL PRIMARY KEY,
+    customer_id INT,
+    livekit_room_id VARCHAR(255),
+    intent VARCHAR(100),
+    resolved BOOLEAN,
+    created_at TIMESTAMP
+);
