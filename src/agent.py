@@ -17,11 +17,11 @@ logger = logging.getLogger("insurance-agent")
 
 async def _connect():
     return await asyncpg.connect(
-        host=os.getenv("DB_HOST", "localhost"),
-        port=int(os.getenv("DB_PORT", 5432)),
-        database=os.getenv("DB_NAME", "insurance_mvp"),
-        user=os.getenv("DB_USER", "adityarao"),
-        password=os.getenv("DB_PASS", "The_sunday"),
+        host=os.getenv("DB_HOST"),
+        port=os.getenv("DB_PORT"),
+        database=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASS"),
     )
 
 
