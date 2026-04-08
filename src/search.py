@@ -4,15 +4,12 @@ import logging
 from typing import List, Optional
 from pydantic import BaseModel, Field
 from livekit.agents import function_tool
-
 logger = logging.getLogger("search-tool")
 
-
-# ------------------ MODELS ------------------
+#MODELS
 class SearchRequest(BaseModel):
     phone: Optional[str] = Field(default=None)
     policy_number: Optional[str] = Field(default=None)
-
 
 class ClaimInfo(BaseModel):
     claim_number: Optional[str]
@@ -20,7 +17,6 @@ class ClaimInfo(BaseModel):
     claimed_amount: Optional[float]
     approved_amount: Optional[float]
     description: Optional[str]
-
 
 class PolicyInfo(BaseModel):
     policy_number: str
@@ -33,25 +29,24 @@ class PolicyInfo(BaseModel):
     end_date: Optional[str]
     claim: Optional[ClaimInfo]
 
-
 class CustomerResponse(BaseModel):
     customer_id: int
     full_name: str
     policies: List[PolicyInfo]
 
 
-# ------------------ DB CONNECTION ------------------
+#DB CONNECTION
 async def connect_db():
     return await asyncpg.connect(
         host=os.getenv("DB_HOST"),
-        port=int(os.getenv("DB_PORT", 5432)),
+        port=os.getenv("DB_PORT"),
         database=os.getenv("DB_NAME"),
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASS"),
     )
+    
 
-
-# ------------------ FETCH FUNCTION ------------------
+#FETCH FUNCTION
 async def fetch_customer_data(req: SearchRequest) -> Optional[CustomerResponse]:
     conn = await connect_db()
     try:
@@ -116,8 +111,7 @@ async def fetch_customer_data(req: SearchRequest) -> Optional[CustomerResponse]:
     finally:
         await conn.close()
 
-
-# ------------------ TOOL: CUSTOMER SEARCH ------------------
+#CUSTOMER SEARCH
 @function_tool
 async def search_customer(policy_number: str) -> dict:
     try:
@@ -139,8 +133,7 @@ async def search_customer(policy_number: str) -> dict:
         logger.error(f"Search error: {e}")
         return {"error": "Internal error"}
 
-
-# ------------------ TOOL: REGULATIONS ------------------
+# REGULATIONS
 @function_tool
 async def get_regulation(topic: str) -> str:
     topic = topic.lower()
@@ -164,5 +157,4 @@ async def get_regulation(topic: str) -> str:
             "Sensitive details should not be shared without validation."
         )
     }
-
     return regulations.get(topic, "No regulation found for this topic.")
