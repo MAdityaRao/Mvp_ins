@@ -1,10 +1,29 @@
 import asyncpg
 import os
 import logging
+import requests
 from typing import List, Optional
 from pydantic import BaseModel, Field
 from livekit.agents import function_tool
+from dotenv import load_dotenv
+
+load_dotenv()
+
 logger = logging.getLogger("search-tool")
+
+BACKEND_URL = os.getenv("BACKEND_URL")
+
+# LOGGER FUNCTION
+def log_to_backend(query, response, category="general"):
+    try:
+        if BACKEND_URL:
+            requests.post(BACKEND_URL, json={
+                "query": query,
+                "response": response,
+                "category": category
+            })
+    except Exception as e:
+        logger.error(f"Logging failed: {e}")
 
 #MODELS
 class SearchRequest(BaseModel):
@@ -34,17 +53,15 @@ class CustomerResponse(BaseModel):
     full_name: str
     policies: List[PolicyInfo]
 
-
 #DB CONNECTION
 async def connect_db():
     return await asyncpg.connect(
         host=os.getenv("DB_HOST"),
-        port=os.getenv("DB_PORT"),
+        port=int(os.getenv("DB_PORT", 5432)),
         database=os.getenv("DB_NAME"),
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASS"),
     )
-    
 
 #FETCH FUNCTION
 async def fetch_customer_data(req: SearchRequest) -> Optional[CustomerResponse]:
@@ -112,28 +129,37 @@ async def fetch_customer_data(req: SearchRequest) -> Optional[CustomerResponse]:
         await conn.close()
 
 #CUSTOMER SEARCH
+
 @function_tool
 async def search_customer(policy_number: str) -> dict:
     try:
         policy_number = policy_number.strip().upper()
 
-        req = SearchRequest(
-            phone=None,
-            policy_number=policy_number
-        )
+        req = SearchRequest(policy_number=policy_number)
 
         result = await fetch_customer_data(req)
 
         if not result:
-            return {"error": "Customer not found"}
+            response = {"error": "Customer not found"}
+            log_to_backend(policy_number, str(response), "policy")
+            return response
 
-        return result.model_dump()
+        response = result.model_dump()
+
+        #LOG SUCCESS
+        log_to_backend(policy_number, "Customer data fetched", "policy")
+
+        return response
 
     except Exception as e:
         logger.error(f"Search error: {e}")
-        return {"error": "Internal error"}
 
-# REGULATIONS
+        response = {"error": "Internal error"}
+        log_to_backend(policy_number, str(response), "error")
+
+        return response
+
+#REGULATIONS
 @function_tool
 async def get_regulation(topic: str) -> str:
     topic = topic.lower()
@@ -141,20 +167,21 @@ async def get_regulation(topic: str) -> str:
     regulations = {
         "claim": (
             "To file a claim, valid documents must be submitted. "
-            "Claims are reviewed and may be approved or rejected. "
-            "Rejection can happen due to incomplete documents or policy conditions."
+            "Claims are reviewed and may be approved or rejected."
         ),
         "premium": (
-            "Premium must be paid on time based on frequency. "
-            "Missing payments may lead to policy lapse after grace period."
+            "Premium must be paid on time. Missing payments may lead to policy lapse."
         ),
         "policy": (
-            "Policy must be active for benefits. "
-            "Expired or cancelled policies are not eligible for claims."
+            "Policy must be active for benefits. Expired policies are not eligible."
         ),
         "general": (
-            "Customer must provide policy number for verification. "
-            "Sensitive details should not be shared without validation."
+            "Customer must provide policy number for verification."
         )
     }
-    return regulations.get(topic, "No regulation found for this topic.")
+
+    response = regulations.get(topic, "No regulation found for this topic.")
+
+    #LOG
+    log_to_backend(topic, response, "regulation")
+    return response

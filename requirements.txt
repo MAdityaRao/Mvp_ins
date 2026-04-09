@@ -1,3 +1,13 @@
-livekit-agents[deepgram,openai,cartesia,silero,turn-detector]>=1.0
-asyncpg
-python-dotenv
+# Core async + DB
+asyncpg>=0.29.0
+# Environment variables
+python-dotenv>=1.0.0
+# AI + LiveKit Agent framework
+livekit-agents>=1.5.1
+livekit>=1.0.0
+# Voice plugins
+livekit-plugins-silero>=0.7.0
+# Data validation
+pydantic>=2.6.0
+# Optional (recommended for stability)
+uvloop>=0.19.0 ; sys_platform != "win32"
