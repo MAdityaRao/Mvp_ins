@@ -128,12 +128,46 @@ async def fetch_customer_data(req: SearchRequest) -> Optional[CustomerResponse]:
     finally:
         await conn.close()
 
+#POLICY NUMBER NORMALIZER
+import re
+
+def normalize_policy_number(raw: str) -> str:
+    """
+    Converts various spoken/typed formats to POL-YYYY-NNN.
+    Examples:
+      "pol twenty twenty four zero zero one" -> "POL-2024-001"
+      "pol two zero two four dash zero zero one" -> "POL-2024-001"
+    """
+    raw = raw.strip().upper()
+
+    # Already correct
+    if re.match(r'^POL-\d{4}-\d{3,}$', raw):
+        return raw
+
+    # Strip prefix: POL / PL / P with optional separators after it
+    cleaned = re.sub(r'^(POL|PL|P)[\s\-_]*', '', raw)
+
+    # Remove all remaining separators
+    cleaned = re.sub(r'[\s\-_]+', '', cleaned)
+
+    # Expect 4-digit year followed by serial digits (e.g. "2024001")
+    match = re.match(r'^(\d{4})(\d+)$', cleaned)
+    if match:
+        year = match.group(1)
+        serial = match.group(2).zfill(3)  # pad to at least 3 digits
+        return f"POL-{year}-{serial}"
+
+    # Fallback: return uppercased raw so DB rejects it cleanly
+    logger.warning(f"Could not normalize policy number: '{raw}'")
+    return raw
+
+
 #CUSTOMER SEARCH
 
 @function_tool
 async def search_customer(policy_number: str) -> dict:
     try:
-        policy_number = policy_number.strip().upper()
+        policy_number = normalize_policy_number(policy_number)
 
         req = SearchRequest(policy_number=policy_number)
 

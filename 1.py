@@ -12,7 +12,7 @@ async def main():
         password="The_sunday",
     )
 
-    rows = await conn.fetch("SELECT * FROM policies")
+    rows = await conn.fetch("SELECT * FROM  customers")
 
     structured_output = []
 
