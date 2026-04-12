@@ -33,13 +33,7 @@ async def _get_pool() -> asyncpg.Pool:
         logger.info("DB pool ready")
     return _pool
 
-# run these once in psql to fix slow queries:
-#   CREATE INDEX IF NOT EXISTS idx_policies_policy_number ON policies(policy_number);
-#   CREATE INDEX IF NOT EXISTS idx_policies_customer_id  ON policies(customer_id);
-#   CREATE INDEX IF NOT EXISTS idx_claims_policy_id      ON claims(policy_id);
-#   CREATE INDEX IF NOT EXISTS idx_customers_phone       ON customers(phone);
-
-# ── models ────────────────────────────────────────────────────────────────
+# models
 
 class SearchRequest(BaseModel):
     phone: Optional[str] = Field(default=None)
@@ -72,39 +66,39 @@ class CustomerResponse(BaseModel):
     policies: List[PolicyInfo]
 
 
-# ── db fetch ──────────────────────────────────────────────────────────────
+#db fetch
 
 _QUERY = """
-    SELECT
-        c.id              AS customer_id,
-        c.full_name,
-        p.id              AS policy_id,
-        p.policy_number,
-        p.policy_type,
-        p.status,
-        p.premium_amount,
-        p.premium_frequency,
-        p.sum_insured,
-        p.start_date,
-        p.end_date,
-        cl.claim_number,
-        cl.status         AS claim_status,
-        cl.claimed_amount,
-        cl.approved_amount,
-        cl.description
-    FROM customers c
-    JOIN policies p ON p.customer_id = c.id
-    LEFT JOIN claims cl ON cl.policy_id = p.id
-    WHERE ($1::TEXT IS NOT NULL AND c.phone = $1)
-       OR ($2::TEXT IS NOT NULL AND p.policy_number = $2)
-    ORDER BY p.id DESC
-"""
+            SELECT
+            c.id              AS customer_id,
+            c.full_name,
+            c.phone,
+            p.id              AS policy_id,
+            p.policy_number,
+            p.policy_type,
+            p.status,
+            p.premium_amount,
+            p.premium_frequency,
+            p.sum_insured,
+            p.start_date,
+            p.end_date,
+            cl.claim_number,
+            cl.status         AS claim_status,
+            cl.claimed_amount,
+            cl.approved_amount,
+            cl.description
+                FROM policies p
+            JOIN customers c ON c.id = p.customer_id
+            LEFT JOIN claims cl ON cl.policy_id = p.id
+            WHERE p.policy_number = $1
+            ORDER BY p.id DESC;
+        """
 
 
 async def fetch_customer_data(req: SearchRequest) -> Optional[CustomerResponse]:
     pool = await _get_pool()
     async with pool.acquire() as conn:
-        rows = await conn.fetch(_QUERY, req.phone, req.policy_number)
+        rows = await conn.fetch(_QUERY,req.policy_number)
 
     if not rows:
         return None
@@ -140,9 +134,7 @@ async def fetch_customer_data(req: SearchRequest) -> Optional[CustomerResponse]:
     )
 
 
-# ── normalizer ────────────────────────────────────────────────────────────
-# STT splits "POL" into letters or mishears it entirely.
-# strip all leading letters, convert spoken words to digits, parse year+serial.
+#normalizer
 
 _WORDS = {
     "twenty twenty five": "2025",
@@ -174,7 +166,7 @@ def normalize_policy_number(raw: str) -> str:
     return raw.upper()
 
 
-# ── regulations ───────────────────────────────────────────────────────────
+#regulations
 
 _REGULATIONS = {
     "storm":   "Storm damage is covered. File within 30 days with photos and a damage report.",
@@ -197,7 +189,7 @@ def _match_regulation(topic: str) -> str:
     return "No specific regulation found. A human agent can help with detailed queries."
 
 
-# ── tools ─────────────────────────────────────────────────────────────────
+#tools
 
 @function_tool
 async def search_customer(policy_number: str) -> dict:
