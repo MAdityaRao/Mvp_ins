@@ -1,0 +1,7 @@
+{
+    "python.analysis.includeAliasesFromUserFiles": true,
+    "python.terminal.useEnvFile": true,
+    "files.readonlyInclude": {
+        "": true
+    }
+}

@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from livekit.agents import function_tool
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(".env")
 
 logger = logging.getLogger("search-tool")
 
@@ -26,6 +26,7 @@ async def _get_pool() -> asyncpg.Pool:
             database=os.getenv("DB_NAME"),
             user=os.getenv("DB_USER"),
             password=os.getenv("DB_PASS"),
+            ssl="require",   #THIS LINE IS IMPORTANT FOR NEON
             min_size=2,
             max_size=5,
         )

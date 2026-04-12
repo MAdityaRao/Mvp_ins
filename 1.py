@@ -1,15 +1,19 @@
 import asyncio
 import asyncpg
 import json
-
+from dotenv import load_dotenv
+import os
+load_dotenv(".env")
 
 async def main():
     conn = await asyncpg.connect(
-        host="localhost",
-        port=5432,
-        database="insurance_mvp",
-        user="adityarao",
-        password="The_sunday",
+        host=os.getenv("DB_HOST", "localhost"),
+            port=int(os.getenv("DB_PORT", 5432)),
+            database=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASS"),
+            ssl="require",   #THIS LINE IS IMPORTANT FOR NEON
+           
     )
 
     rows = await conn.fetch("SELECT * FROM  customers")
