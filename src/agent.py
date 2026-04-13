@@ -4,8 +4,8 @@ from dotenv import load_dotenv
 from livekit.agents import Agent, AgentServer, AgentSession, JobContext, cli, inference, room_io
 from livekit.plugins import silero, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
-from search import search_customer, get_regulation, _get_pool
-
+from search import search_customer, _get_pool
+from regulations import get_regulation
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
@@ -21,10 +21,11 @@ def build_instructions() -> str:
         "2. Use search_customer when policy number is given.\n"
         "3. Use get_regulation for claims, rules, or policy questions.\n"
         "4. If not found, ask again politely.\n"
-        "5. Offer human help if needed.\n"
-        "6. Never repeat the policy number back.\n"
+        "5. Offer human help if needed if the asked question is beyond your intelligence.\n"
+        "6. try to avoid escalating to human agent\n"
+        "6. using your intelligence answer for the asked question if you have the answer in your knowledge base\n"
+        "7. Never repeat the policy number back.\n"
     )
-
 
 class InsuranceAssistant(Agent):
     def __init__(self):
