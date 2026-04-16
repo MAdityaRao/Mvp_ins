@@ -10,16 +10,6 @@ This project demonstrates how to move beyond simple AI demos and build a complet
 
 ---
 
-Demo
-
-https://your-demo-video-link
-
-> Real-time voice interaction with live database retrieval (~2s latency)
-
-
-
-
----
 
 Why This Project
 
