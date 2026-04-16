@@ -1,131 +1,95 @@
+# AI Insurance Voice Agent Platform
 
-AI Insurance Voice Agent Platform
+A production-oriented real-time AI system that enables **voice and text-based insurance interactions** using LLMs, tool-calling, speech processing, and a structured PostgreSQL backend.
 
-
-
-A production-oriented AI system that enables real-time, voice-driven interactions for insurance services using LLMs, tool calling, and a scalable PostgreSQL backend.
-
-This project demonstrates how to move beyond simple AI demos and build a complete, low-latency system that integrates speech processing, reasoning, and structured data retrieval.
-
+This project demonstrates how to design and build **real-world AI systems that operate under latency, structure, and reliability constraints**.
 
 ---
 
+## 🎯 Problem Statement
 
-Why This Project
+Traditional insurance systems are:
+- Slow (manual lookup processes)
+- Non-interactive (form-based UX)
+- Hard to scale in customer support
 
-Most AI projects focus only on model outputs.
-
-This project focuses on system design — integrating real-time voice, LLM reasoning, and structured databases into a single low-latency pipeline.
-
-It demonstrates how to build AI systems that:
-
-Operate under real-world constraints
-
-Handle noisy human input
-
-Retrieve and act on live data
-
-Deliver consistent, production-like performance
-
-
+This system solves it by enabling:
+> Real-time conversational access to insurance data using AI agents.
 
 ---
 
-Overview
+## ⚙️ System Architecture
 
-This platform provides an intelligent conversational interface where users can interact via voice or text to:
-
-Retrieve policy details
-
-Check claim status
-
-Understand insurance terms
-
-Access premium and payment information
-
-
-The system combines LLM reasoning with structured backend execution to ensure accuracy, speed, and real-world usability.
-
-
----
-
-System Architecture
-
-Client (Voice/Text)
-        │
-        ▼
-Speech-to-Text (STT)
-        │
-        ▼
-LLM Agent (Reasoning + Tool Selection)
-        │
-   ┌────┴───────────┐
-   ▼                ▼
-Database Tool     Regulation Tool
-(PostgreSQL)      (Rules Engine)
-   │                │
-   └──────┬─────────┘
-          ▼
-     LLM Response
-          │
-          ▼
-Text-to-Speech (TTS)
-          │
-          ▼
-     Client Output
-
+User (Voice/Text Input)  
+        │  
+        ▼  
+Speech-to-Text (STT)  
+        │  
+        ▼  
+LLM Agent (Reasoning + Tool Selection)  
+        │  
+   ┌────┴────────────┐  
+   ▼                 ▼  
+PostgreSQL DB     Rules Engine  
+(structured data)  (business logic)  
+   └────┬────────────┘  
+        ▼  
+LLM Response Generator  
+        │  
+        ▼  
+Text-to-Speech (TTS)  
+        │  
+        ▼  
+User Output  
 
 ---
 
-Core Components
+## 🧠 Core System Design
 
-AI Agent Layer
-
-LLM-based reasoning with tool calling
-
-Context-aware multi-turn conversations
-
-Dynamic decision-making between tools
-
-
+### 1. LLM Agent Layer
+- Handles multi-turn conversation state
+- Performs tool selection (function calling)
+- Combines retrieved data with reasoning
+- Ensures structured responses for insurance queries
 
 ---
 
-Database Layer
+### 2. Tool Execution Layer
+The system supports controlled execution via tools such as:
+- Customer lookup
+- Policy retrieval
+- Claim status tracking
+- Regulation / rule validation
 
-Production-style relational schema:
-
-Tables:
-
-customers
-
-policies
-
-claims
-
-payments
-
-nominees
-
-policy_coverages
-
-claim_status_history
-
-
-Design Highlights:
-
-Normalized schema with foreign keys
-
-Indexed queries for low latency
-
-Real-world insurance modeling
-
-
+This ensures:
+> LLM does not hallucinate critical insurance data
 
 ---
 
-Query Optimization
+### 3. Database Layer (PostgreSQL)
 
+Relational schema designed for real-world insurance workflows.
+
+#### Core Tables:
+- customers
+- policies
+- claims
+- payments
+- nominees
+- policy_coverages
+- claim_status_history
+
+#### Design Principles:
+- Fully normalized schema
+- Foreign key relationships
+- Indexed queries for low-latency access
+- Optimized for read-heavy workloads
+
+---
+
+## ⚡ Query Optimization Example
+
+```sql
 SELECT 
     c.id AS customer_id,
     c.full_name,
@@ -138,178 +102,66 @@ FROM policies p
 JOIN customers c ON c.id = p.customer_id
 LEFT JOIN claims cl ON cl.policy_id = p.id
 WHERE p.policy_number = $1;
-
-Indexes:
-
 CREATE INDEX idx_policy_number ON policies(policy_number);
 CREATE INDEX idx_claim_policy_id ON claims(policy_id);
+```
 
+🎙 Voice Processing Pipeline
+The system uses a streaming-based pipeline:
+User Speech
+→ Speech-to-Text (STT)
+→ LLM Reasoning + Tool Selection
+→ Database / Rules Execution
+→ Response Synthesis
+→ Text-to-Speech (TTS)
+→ Audio Output
 
----
+🧩 Key Features
+Real-time voice + text interaction
+LLM tool-calling architecture (no free-form hallucination for structured data)
+PostgreSQL-backed deterministic retrieval
+Multi-turn context-aware conversations
+Modular, extensible system design
 
-Voice Processing Pipeline
-
-User Speech → STT → LLM → Tool Execution → LLM → TTS → Audio Output
-
-
----
-
-Key Features
-
-Real-time voice interaction
-
-LLM tool-calling for backend execution
-
-Optimized PostgreSQL queries
-
-Context-aware multi-turn conversations
-
-Modular and extensible architecture
-
-
-
----
-
-Performance
-
-Component	Latency
-
+📊 Performance Profile
+Component	Latency (Approx.)
 Speech-to-Text	300–500 ms
 LLM Processing	700–1000 ms
 Database Query	50–150 ms
 Text-to-Speech	800–1300 ms
-End-to-End	~2–4 seconds
+Total End-to-End	~2–4 sec
 
-
-
----
-
-Tech Stack
-
-Python (async backend)
-
-PostgreSQL (Neon cloud)
-
-LiveKit (real-time voice orchestration)
-
+🛠 Tech Stack
+Python (Async backend)
+PostgreSQL (Neon / cloud DB)
 LLM APIs (tool calling)
+LiveKit (real-time voice orchestration)
+WebSockets / WebRTC
+Text-to-Speech + Speech-to-Text APIs
 
-WebRTC
+🔐 Production Considerations
+Environment-based secret management (.env)
+Connection pooling for PostgreSQL
+Stateless backend design for scalability
+Logging layer for debugging agent decisions
+Rate limiting for API safety
+Streaming STT/TTS for future latency reduction
 
+🚀 Future Improvements
+Reduce end-to-end latency below 2 seconds
+Add multilingual voice support
+Introduce caching layer for frequent queries
+Add monitoring dashboard (latency + usage metrics)
+Expand tool ecosystem (payments, claims automation)
+Improve retrieval accuracy via hybrid search
 
-
----
-
-Setup
-
-Prerequisites
-
-Python 3.10+
-
-PostgreSQL / Neon instance
-
-API keys for LLM and voice services
-
-
-
----
-
-Installation
-
-git clone https://github.com/MAdityaRao/Mvp_ins.git
-cd Mvp_ins
-
-python3 -m venv venv
-source venv/bin/activate
-
-pip install -r requirements.txt
-
-
----
-
-Environment Variables
-
-Create a .env file:
-
-DATABASE_URL=your_postgres_url
-LIVEKIT_API_KEY=your_key
-LIVEKIT_API_SECRET=your_secret
-
-
----
-
-Run
-
-uv run src/agent.py console
-
-
----
-
-AI Tools
-
-Tool Name	Description
-
-search_customer	Fetch policy and claim data
-get_regulation	Retrieve insurance rules
-
-
-
----
-
-Production Considerations
-
-Secure secrets using environment variables
-
-Use connection pooling for PostgreSQL
-
-Add logging and monitoring
-
-Implement rate limiting
-
-Use streaming STT/TTS for lower latency
-
-
-
----
-
-Future Improvements
-
-Sub-2s latency optimization
-
-Multilingual voice support
-
-Payment integration
-
-Monitoring dashboard
-
-Analytics layer
-
-
-
----
-
-Use Cases
-
+🎯 Real-World Use Cases
 Insurance customer support automation
+Policy information assistant
+Claims tracking system
+Voice-based financial advisory interface
 
-Claims inquiry systems
-
-Policy management assistants
-
-Voice-enabled financial services
-
-
-
----
-
-Author
-
-Aditya 
-Focus: AI Systems, LLM Applications, Real-Time Architectures
-
-
----
-
-Summary
-
-This project demonstrates how to combine LLMs, real-time voice systems, and relational databases to build production-oriented AI applications that operate under real-world constraints.
+👤 Author
+Aditya Rao
+AI Systems Engineer | LLM Applications | Real-Time Architectures
+Built as a production-style AI system focused on real-world constraints: latency, reliability, and structured reasoning.    
